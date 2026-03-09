@@ -65,12 +65,13 @@ const scannerRouter = router({
     }),
 
   checkinFurniture: publicProcedure
-    .input(z.object({ salesOrderLineId: z.string().min(1), binLocation: z.string().optional() }))
+    .input(z.object({ salesOrderLineId: z.string().min(1), storeCd: z.string().min(1), locCd: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
       const today = new Date().toISOString().split("T")[0];
-      const props: Record<string, string> = { line_status: "Received", received_date: today };
-      if (input.binLocation) props.bin_location = input.binLocation;
+      const props: Record<string, string> = { line_status: "Received", received_date: today, store_cd: input.storeCd };
+      if (input.locCd) props.loc_cd = input.locCd;
       const updated = await updateFurniture(input.salesOrderLineId, props);
+      const locationNote = input.locCd ? `Store: ${input.storeCd}, Location: ${input.locCd}` : `Store: ${input.storeCd}`;
       await insertScanHistory({
         scannedCode: `SOL:${input.salesOrderLineId}`,
         resolvedType: "sales_order_line",
@@ -78,7 +79,7 @@ const scannerRouter = router({
         displayName: updated.name ?? input.salesOrderLineId,
         action: "checkin",
         success: 1,
-        note: input.binLocation ? `Bin: ${input.binLocation}` : undefined,
+        note: locationNote,
         userId: ctx.user?.id ?? null,
       }).catch(() => {});
       return updated;

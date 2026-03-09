@@ -139,7 +139,7 @@ describe("scanner.receivePart", () => {
 describe("scanner.checkinFurniture", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("calls updateFurniture with Received status", async () => {
+  it("calls updateFurniture with Received status and store/location codes", async () => {
     const mockSOL = {
       id: "789",
       objectType: "sales_order_line" as const,
@@ -153,14 +153,14 @@ describe("scanner.checkinFurniture", () => {
       vendorCode: null,
       partDeliveryMethod: "Standard",
       lineStatus: "Received",
-      binLocation: "FLOOR-A",
+      storeCd: "STORE-01", locCd: "FLOOR-A",
     };
     vi.mocked(updateFurniture).mockResolvedValue(mockSOL);
     const caller = appRouter.createCaller(makeCtx());
-    const result = await caller.scanner.checkinFurniture({ salesOrderLineId: "789", binLocation: "FLOOR-A" });
+    const result = await caller.scanner.checkinFurniture({ salesOrderLineId: "789", storeCd: "STORE-01", locCd: "FLOOR-A" });
     expect(updateFurniture).toHaveBeenCalledWith("789", expect.objectContaining({
       line_status: "Received",
-      bin_location: "FLOOR-A",
+      store_cd: "STORE-01", loc_cd: "FLOOR-A",
     }));
     expect(result.lineStatus).toBe("Received");
   });

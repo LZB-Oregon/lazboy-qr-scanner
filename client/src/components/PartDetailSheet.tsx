@@ -236,13 +236,14 @@ function PartsOrderDetail({ record }: { record: PartsOrderRecord }) {
 // ─── Sales Order Line (Furniture) Detail ─────────────────────────────────────
 
 function SalesOrderLineDetail({ record, onCheckedIn }: { record: SalesOrderLineRecord; onCheckedIn?: () => void }) {
-  const [binLocation, setBinLocation] = useState(record.binLocation ?? "");
+  const [storeCd, setStoreCd] = useState("");
+  const [locCd, setLocCd] = useState("");
   const [checking, setChecking] = useState(false);
 
   const checkinMutation = trpc.scanner.checkinFurniture.useMutation({
     onSuccess: () => {
       toast.success("Furniture checked in!", {
-        description: record.name ?? "Item status updated in HubSpot",
+        description: `Store: ${storeCd}${locCd ? `, Location: ${locCd}` : ""}`,
         duration: 4000,
       });
       setChecking(false);
@@ -255,10 +256,15 @@ function SalesOrderLineDetail({ record, onCheckedIn }: { record: SalesOrderLineR
   });
 
   const handleCheckin = () => {
+    if (!storeCd.trim()) {
+      toast.error("Store code required");
+      return;
+    }
     setChecking(true);
     checkinMutation.mutate({
       salesOrderLineId: record.id,
-      binLocation: binLocation.trim() || undefined,
+      storeCd: storeCd.trim(),
+      locCd: locCd.trim() || undefined,
     });
   };
 
@@ -295,17 +301,26 @@ function SalesOrderLineDetail({ record, onCheckedIn }: { record: SalesOrderLineR
           <div className="space-y-3">
             <Label className="text-sm font-semibold text-foreground">Check In Furniture</Label>
             <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Store Code (required)"
+                value={storeCd}
+                onChange={(e) => setStoreCd(e.target.value)}
+                className="pl-9 bg-input border-border text-foreground h-12 text-base"
+              />
+            </div>
+            <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Bin location (optional)"
-                value={binLocation}
-                onChange={(e) => setBinLocation(e.target.value)}
+                placeholder="Location Code (optional)"
+                value={locCd}
+                onChange={(e) => setLocCd(e.target.value)}
                 className="pl-9 bg-input border-border text-foreground h-12 text-base"
               />
             </div>
             <Button
               onClick={handleCheckin}
-              disabled={checking}
+              disabled={checking || !storeCd.trim()}
               className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {checking ? (

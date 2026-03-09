@@ -280,7 +280,8 @@ const FURNITURE_PROPS = [
   "vendor_code",
   "part_delivery_method",
   "line_status",
-  "bin_location",
+  "store_cd",
+  "loc_cd",
   "hs_object_id",
 ].join(",");
 
@@ -311,7 +312,7 @@ export async function getFurnitureById(id: string): Promise<SalesOrderLineRecord
 
 export async function updateFurniture(
   id: string,
-  props: { line_status?: string; received_date?: string; bin_location?: string }
+  props: { line_status?: string; received_date?: string; store_cd?: string; loc_cd?: string }
 ): Promise<SalesOrderLineRecord> {
   const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/${id}`;
   const { data } = await axios.patch(url, { properties: props }, { headers: headers() });
