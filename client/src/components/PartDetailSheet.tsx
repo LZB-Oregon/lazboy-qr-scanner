@@ -264,7 +264,7 @@ function SalesOrderLineDetail({ record, onCheckedIn }: { record: SalesOrderLineR
     checkinMutation.mutate({
       salesOrderLineId: record.id,
       storeCd: storeCd.trim(),
-      locCd: locCd.trim() || undefined,
+      locCd: locCd.trim() ? locCd.trim() : undefined,
     });
   };
 
