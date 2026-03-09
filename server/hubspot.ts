@@ -284,39 +284,101 @@ export type LookupResult =
   | { type: "sales_order_line"; record: SalesOrderLineRecord }
   | { type: "not_found"; code: string };
 
+/**
+ * Extract HubSpot ID from a full HubSpot URL.
+ * Example: https://app.hubspot.com/contacts/44270378/record/2-57157764/47526582026
+ * Returns: { objectType: "2-57157764", id: "47526582026" } or null
+ */
+function extractHubSpotIdFromUrl(url: string): { objectType: string; id: string } | null {
+  const match = url.match(/\/record\/([^/]+)\/([^/]+)$/);
+  if (match) {
+    return { objectType: match[1], id: match[2] };
+  }
+  return null;
+}
+
 export async function lookupByCode(code: string): Promise<LookupResult> {
   const trimmed = code.trim();
+
+  // Try to extract HubSpot ID from URL (if user scanned a full HubSpot URL)
+  const urlMatch = extractHubSpotIdFromUrl(trimmed);
+  if (urlMatch) {
+    if (urlMatch.objectType === PARTS_LINE_OBJECT) {
+      try {
+        const record = await getPartsLineById(urlMatch.id);
+        return { type: "parts_line", record };
+      } catch {
+        return { type: "not_found", code: trimmed };
+      }
+    }
+    if (urlMatch.objectType === PARTS_ORDER_OBJECT) {
+      try {
+        const record = await getPartsOrderById(urlMatch.id);
+        return { type: "parts_order", record };
+      } catch {
+        return { type: "not_found", code: trimmed };
+      }
+    }
+    if (urlMatch.objectType === SALES_ORDER_LINE_OBJECT) {
+      try {
+        const record = await getSalesOrderLineById(urlMatch.id);
+        return { type: "sales_order_line", record };
+      } catch {
+        return { type: "not_found", code: trimmed };
+      }
+    }
+  }
 
   // Explicit prefix routing
   if (trimmed.startsWith("PL:")) {
     const id = trimmed.slice(3);
-    const record = await getPartsLineById(id);
-    return { type: "parts_line", record };
+    try {
+      const record = await getPartsLineById(id);
+      return { type: "parts_line", record };
+    } catch {
+      return { type: "not_found", code: trimmed };
+    }
   }
   if (trimmed.startsWith("PO:")) {
     const id = trimmed.slice(3);
-    const record = await getPartsOrderById(id);
-    return { type: "parts_order", record };
+    try {
+      const record = await getPartsOrderById(id);
+      return { type: "parts_order", record };
+    } catch {
+      return { type: "not_found", code: trimmed };
+    }
   }
   if (trimmed.startsWith("SOL:")) {
     const id = trimmed.slice(4);
-    const record = await getSalesOrderLineById(id);
-    return { type: "sales_order_line", record };
+    try {
+      const record = await getSalesOrderLineById(id);
+      return { type: "sales_order_line", record };
+    } catch {
+      return { type: "not_found", code: trimmed };
+    }
   }
   if (trimmed.startsWith("PRO:")) {
     const pro = trimmed.slice(4);
-    const results = await searchPartsLines([
-      { filters: [{ propertyName: "spot_pro_number", operator: "EQ", value: pro }] },
-    ]);
-    if (results.length > 0) return { type: "parts_line", record: results[0] };
+    try {
+      const results = await searchPartsLines([
+        { filters: [{ propertyName: "spot_pro_number", operator: "EQ", value: pro }] },
+      ]);
+      if (results.length > 0) return { type: "parts_line", record: results[0] };
+    } catch {
+      // fall through
+    }
     return { type: "not_found", code: trimmed };
   }
   if (trimmed.startsWith("ALI:")) {
     const ali = trimmed.slice(4);
-    const results = await searchPartsLines([
-      { filters: [{ propertyName: "ali_number", operator: "EQ", value: ali }] },
-    ]);
-    if (results.length > 0) return { type: "parts_line", record: results[0] };
+    try {
+      const results = await searchPartsLines([
+        { filters: [{ propertyName: "ali_number", operator: "EQ", value: ali }] },
+      ]);
+      if (results.length > 0) return { type: "parts_line", record: results[0] };
+    } catch {
+      // fall through
+    }
     return { type: "not_found", code: trimmed };
   }
 
@@ -337,17 +399,25 @@ export async function lookupByCode(code: string): Promise<LookupResult> {
     return { type: "not_found", code: trimmed };
   }
 
-  // Try searching by PO number
-  const poResults = await searchPartsOrders([
-    { filters: [{ propertyName: "po_number", operator: "EQ", value: trimmed }] },
-  ]);
-  if (poResults.length > 0) return { type: "parts_order", record: poResults[0] };
+  // Try searching by PO number (with error handling)
+  try {
+    const poResults = await searchPartsOrders([
+      { filters: [{ propertyName: "po_number", operator: "EQ", value: trimmed }] },
+    ]);
+    if (poResults.length > 0) return { type: "parts_order", record: poResults[0] };
+  } catch {
+    // fall through
+  }
 
-  // Try searching by PRO number
-  const proResults = await searchPartsLines([
-    { filters: [{ propertyName: "spot_pro_number", operator: "EQ", value: trimmed }] },
-  ]);
-  if (proResults.length > 0) return { type: "parts_line", record: proResults[0] };
+  // Try searching by PRO number (with error handling)
+  try {
+    const proResults = await searchPartsLines([
+      { filters: [{ propertyName: "spot_pro_number", operator: "EQ", value: trimmed }] },
+    ]);
+    if (proResults.length > 0) return { type: "parts_line", record: proResults[0] };
+  } catch {
+    // fall through
+  }
 
   // Try searching by ALI number
   const aliResults = await searchPartsLines([

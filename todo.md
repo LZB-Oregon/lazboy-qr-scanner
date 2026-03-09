@@ -27,3 +27,8 @@
 - [x] Vitest: HubSpot lookup procedure
 - [x] Vitest: receive parts procedure
 - [x] Vitest: scan history procedure
+
+
+## Bug Fixes
+- [x] Fixed 400 error on scanner lookup: Added URL parsing to extract HubSpot IDs from full HubSpot URLs (e.g., https://app.hubspot.com/contacts/.../record/2-57157764/47526582026)
+- [x] Added comprehensive error handling to all search/lookup operations to prevent invalid API calls
