@@ -25,4 +25,31 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Scan history: every scan event is logged here for audit trail.
+ * Stores the raw scanned code, the resolved HubSpot record type/id,
+ * the action taken (view | receive | checkin), and outcome.
+ */
+export const scanHistory = mysqlTable("scan_history", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Raw value decoded from the QR/barcode */
+  scannedCode: varchar("scannedCode", { length: 512 }).notNull(),
+  /** HubSpot object type resolved: parts_line | parts_order | sales_order_line | unknown */
+  resolvedType: varchar("resolvedType", { length: 64 }),
+  /** HubSpot record ID */
+  hubspotId: varchar("hubspotId", { length: 64 }),
+  /** Display name / PO number for quick reference */
+  displayName: varchar("displayName", { length: 256 }),
+  /** Action performed */
+  action: mysqlEnum("action", ["view", "receive", "checkin"]).default("view").notNull(),
+  /** Whether the action succeeded */
+  success: int("success").default(1).notNull(),
+  /** Optional note (e.g. bin location set) */
+  note: text("note"),
+  /** User who performed the scan */
+  userId: int("userId"),
+  scannedAt: timestamp("scannedAt").defaultNow().notNull(),
+});
+
+export type ScanHistory = typeof scanHistory.$inferSelect;
+export type InsertScanHistory = typeof scanHistory.$inferInsert;

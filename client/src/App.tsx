@@ -1,37 +1,101 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation, Link } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import ScannerPage from "./pages/ScannerPage";
+import SearchPage from "./pages/SearchPage";
+import ReceivePage from "./pages/ReceivePage";
+import HistoryPage from "./pages/HistoryPage";
+import { Home as HomeIcon, ScanLine, Search, Package, History } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-function Router() {
-  // make sure to consider if you need authentication for certain routes
+const NAV_ITEMS = [
+  { href: "/", icon: HomeIcon, label: "Home" },
+  { href: "/scan", icon: ScanLine, label: "Scan" },
+  { href: "/receive", icon: Package, label: "Receive" },
+  { href: "/search", icon: Search, label: "Search" },
+  { href: "/history", icon: History, label: "History" },
+];
+
+function BottomNav() {
+  const [location] = useLocation();
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border">
+      <div className="flex items-center justify-around px-2 pt-2 max-w-[600px] mx-auto" style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
+        {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+          const isActive = href === "/" ? location === "/" : location.startsWith(href);
+          return (
+            <Link key={href} href={href}>
+              <div className={cn(
+                "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all min-w-[52px]",
+                isActive ? "text-primary" : "text-muted-foreground"
+              )}>
+                <div className={cn(
+                  "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
+                  isActive ? "bg-primary/15" : "bg-transparent"
+                )}>
+                  <Icon className={cn("w-5 h-5 transition-all", isActive && "scale-110")} />
+                </div>
+                <span className={cn(
+                  "text-[10px] font-medium",
+                  isActive ? "text-primary" : "text-muted-foreground"
+                )}>
+                  {label}
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
+function AppLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-background">
+      <main className="overflow-y-auto pb-28 max-w-[600px] mx-auto w-full min-h-screen">
+        {children}
+      </main>
+      <BottomNav />
+    </div>
+  );
+}
+
+function Router() {
+  return (
+    <AppLayout>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/scan" component={ScannerPage} />
+        <Route path="/receive" component={ReceivePage} />
+        <Route path="/search" component={SearchPage} />
+        <Route path="/history" component={HistoryPage} />
+        <Route path="/404" component={NotFound} />
+        <Route component={NotFound} />
+      </Switch>
+    </AppLayout>
+  );
+}
 
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
-          <Toaster />
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              style: {
+                background: "oklch(0.18 0.015 240)",
+                border: "1px solid oklch(0.28 0.02 240)",
+                color: "oklch(0.95 0.005 240)",
+              },
+            }}
+          />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

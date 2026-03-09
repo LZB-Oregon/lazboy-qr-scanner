@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, scanHistory, InsertScanHistory, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,27 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ─── Scan History ─────────────────────────────────────────────────────────────
+
+export async function insertScanHistory(entry: InsertScanHistory) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(scanHistory).values(entry);
+}
+
+export async function getScanHistory(limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(scanHistory).orderBy(desc(scanHistory.scannedAt)).limit(limit);
+}
+
+export async function getScanHistoryByUser(userId: number, limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(scanHistory)
+    .where(eq(scanHistory.userId, userId))
+    .orderBy(desc(scanHistory.scannedAt))
+    .limit(limit);
+}
