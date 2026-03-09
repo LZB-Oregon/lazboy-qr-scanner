@@ -327,6 +327,8 @@ export async function lookupByCode(code: string): Promise<LookupResult> {
         return { type: "not_found", code: trimmed };
       }
     }
+    // Unknown object type in URL—return not found instead of trying to search
+    return { type: "not_found", code: trimmed };
   }
 
   // Explicit prefix routing
