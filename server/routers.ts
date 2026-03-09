@@ -8,10 +8,12 @@ import {
   getPartsLineById,
   getPartsOrderById,
   getSalesOrderLineById,
+  getFurnitureById,
   searchPartsLines,
   searchPartsOrders,
   updatePartsLine,
   updateSalesOrderLine,
+  updateFurniture,
   getPartsToReceive,
 } from "./hubspot";
 import { insertScanHistory, getScanHistory, getScanHistoryByUser } from "./db";
@@ -68,7 +70,7 @@ const scannerRouter = router({
       const today = new Date().toISOString().split("T")[0];
       const props: Record<string, string> = { line_status: "Received", received_date: today };
       if (input.binLocation) props.bin_location = input.binLocation;
-      const updated = await updateSalesOrderLine(input.salesOrderLineId, props);
+      const updated = await updateFurniture(input.salesOrderLineId, props);
       await insertScanHistory({
         scannedCode: `SOL:${input.salesOrderLineId}`,
         resolvedType: "sales_order_line",

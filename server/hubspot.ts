@@ -4,7 +4,8 @@
  * Custom Objects:
  *   Parts Order  → 2-57143005
  *   Parts Line   → 2-57157764
- *   Sales Order Line → native line items (0-8)
+ *   Sales Order Line (Furniture) → 2-48907108
+ *   Sales Order Line (native) → 0-8
  */
 
 import axios from "axios";
@@ -13,6 +14,7 @@ const HS_BASE = "https://api.hubapi.com";
 const PARTS_ORDER_OBJECT = "2-57143005";
 const PARTS_LINE_OBJECT = "2-57157764";
 const SALES_ORDER_LINE_OBJECT = "0-8"; // native Line Items
+const FURNITURE_OBJECT = "2-48907108"; // Custom Sales Order Line (Furniture to be serviced)
 
 function getToken(): string {
   const token = process.env.HUBSPOT_ACCESS_TOKEN;
@@ -265,6 +267,57 @@ export async function updateSalesOrderLine(
   return mapSalesOrderLine(data);
 }
 
+// ─── Furniture (Custom Sales Order Line 2-48907108) ───────────────────────────────
+
+const FURNITURE_PROPS = [
+  "name",
+  "quantity",
+  "price",
+  "hs_sku",
+  "description",
+  "charge_code",
+  "part_source",
+  "vendor_code",
+  "part_delivery_method",
+  "line_status",
+  "bin_location",
+  "hs_object_id",
+].join(",");
+
+function mapFurniture(raw: Record<string, unknown>): SalesOrderLineRecord {
+  const p = raw.properties as Record<string, string | null>;
+  return {
+    id: raw.id as string,
+    objectType: "sales_order_line",
+    name: p.name ?? null,
+    quantity: p.quantity ?? null,
+    price: p.price ?? null,
+    sku: p.hs_sku ?? null,
+    description: p.description ?? null,
+    chargeCode: p.charge_code ?? null,
+    partSource: p.part_source ?? null,
+    vendorCode: p.vendor_code ?? null,
+    partDeliveryMethod: p.part_delivery_method ?? null,
+    lineStatus: p.line_status ?? null,
+    binLocation: p.bin_location ?? null,
+  };
+}
+
+export async function getFurnitureById(id: string): Promise<SalesOrderLineRecord> {
+  const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/${id}?properties=${FURNITURE_PROPS}`;
+  const { data } = await axios.get(url, { headers: headers() });
+  return mapFurniture(data);
+}
+
+export async function updateFurniture(
+  id: string,
+  props: { line_status?: string; received_date?: string; bin_location?: string }
+): Promise<SalesOrderLineRecord> {
+  const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/${id}`;
+  const { data } = await axios.patch(url, { properties: props }, { headers: headers() });
+  return mapFurniture(data);
+}
+
 // ─── Smart Lookup (parse scanned code) ───────────────────────────────────────
 
 /**
@@ -322,6 +375,14 @@ export async function lookupByCode(code: string): Promise<LookupResult> {
     if (urlMatch.objectType === SALES_ORDER_LINE_OBJECT) {
       try {
         const record = await getSalesOrderLineById(urlMatch.id);
+        return { type: "sales_order_line", record };
+      } catch {
+        return { type: "not_found", code: trimmed };
+      }
+    }
+    if (urlMatch.objectType === FURNITURE_OBJECT) {
+      try {
+        const record = await getFurnitureById(urlMatch.id);
         return { type: "sales_order_line", record };
       } catch {
         return { type: "not_found", code: trimmed };
