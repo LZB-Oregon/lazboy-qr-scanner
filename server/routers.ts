@@ -67,8 +67,7 @@ const scannerRouter = router({
   checkinFurniture: publicProcedure
     .input(z.object({ salesOrderLineId: z.string().min(1), storeCd: z.string().min(1), locCd: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
-      const today = new Date().toISOString().split("T")[0];
-      const props: Record<string, string> = { line_status: "Received", received_date: today, store_cd: input.storeCd };
+      const props: Record<string, string> = { store_cd: input.storeCd };
       if (input.locCd) props.loc_cd = input.locCd;
       const updated = await updateFurniture(input.salesOrderLineId, props);
       const locationNote = input.locCd ? `Store: ${input.storeCd}, Location: ${input.locCd}` : `Store: ${input.storeCd}`;

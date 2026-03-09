@@ -159,8 +159,8 @@ describe("scanner.checkinFurniture", () => {
     const caller = appRouter.createCaller(makeCtx());
     const result = await caller.scanner.checkinFurniture({ salesOrderLineId: "789", storeCd: "STORE-01", locCd: "FLOOR-A" });
     expect(updateFurniture).toHaveBeenCalledWith("789", expect.objectContaining({
-      line_status: "Received",
-      store_cd: "STORE-01", loc_cd: "FLOOR-A",
+      store_cd: "STORE-01",
+      loc_cd: "FLOOR-A",
     }));
     expect(result.lineStatus).toBe("Received");
   });
