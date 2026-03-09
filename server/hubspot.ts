@@ -315,7 +315,11 @@ export async function updateFurniture(
   props: { line_status?: string; received_date?: string; store_cd?: string; loc_cd?: string }
 ): Promise<SalesOrderLineRecord> {
   const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/${id}`;
-  const { data } = await axios.patch(url, { properties: props }, { headers: headers() });
+  // Filter out null/undefined values to avoid HubSpot validation errors
+  const cleanProps = Object.fromEntries(
+    Object.entries(props).filter(([, v]) => v != null)
+  );
+  const { data } = await axios.patch(url, { properties: cleanProps }, { headers: headers() });
   return mapFurniture(data);
 }
 
