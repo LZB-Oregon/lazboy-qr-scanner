@@ -17,6 +17,8 @@ import {
   getPartsToReceive,
 } from "./hubspot";
 import { insertScanHistory, getScanHistory, getScanHistoryByUser } from "./db";
+import { createIntakeTicket, getStoreLocations } from "./intake";
+import { generateQRCodeDataUrl, formatQRLabelZPL, generateLabelPreview } from "./qrLabel";
 
 // ─── Scanner Router ─────────────────────────────────────────────────────────────
 
@@ -131,6 +133,59 @@ const scannerRouter = router({
   getSalesOrderLine: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => getSalesOrderLineById(input.id)),
+
+  submitIntakeForm: publicProcedure
+    .input(z.object({
+      acknowledgementNumber: z.string().min(1),
+      customerCode: z.string().min(1),
+      storeCd: z.string().min(1),
+      damageNotes: z.string().optional(),
+      photoUrl: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const result = await createIntakeTicket(input);
+      await insertScanHistory({
+        scannedCode: input.acknowledgementNumber,
+        resolvedType: "intake_form",
+        hubspotId: result.ticketId,
+        displayName: `Intake - ${input.acknowledgementNumber}`,
+        action: "view" as const,
+        success: result.success ? 1 : 0,
+        note: `Store: ${input.storeCd}, Customer: ${input.customerCode}`,
+        userId: ctx.user?.id ?? null,
+      }).catch(() => {});
+      return result;
+    }),
+
+  getStores: publicProcedure
+    .query(async () => getStoreLocations()),
+
+  generateServiceTag: publicProcedure
+    .input(z.object({
+      acknowledgementNumber: z.string().min(1),
+      customerCode: z.string().min(1),
+      serviceOrderNumber: z.string().optional(),
+      partDescription: z.string().optional(),
+      storeCd: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      const qrData = JSON.stringify({
+        ack: input.acknowledgementNumber,
+        cd: input.customerCode,
+        so: input.serviceOrderNumber,
+        st: input.storeCd,
+      });
+      const qrDataUrl = await generateQRCodeDataUrl(qrData);
+      const zplLabel = formatQRLabelZPL(input);
+      const preview = generateLabelPreview(input);
+      return { qrDataUrl, zplLabel, preview };
+    }),
+});
+
+const intakeRouter = router({
+  submitForm: scannerRouter.submitIntakeForm,
+  getStores: scannerRouter.getStores,
+  generateServiceTag: scannerRouter.generateServiceTag,
 });
 
 // ─── App Router ─────────────────────────────────────────────────────────────
@@ -146,6 +201,7 @@ export const appRouter = router({
     }),
   }),
   scanner: scannerRouter,
+  intake: intakeRouter,
 });
 
 export type AppRouter = typeof appRouter;
