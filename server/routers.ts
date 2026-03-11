@@ -17,8 +17,6 @@ import {
   getPartsToReceive,
 } from "./hubspot";
 import { insertScanHistory, getScanHistory, getScanHistoryByUser } from "./db";
-import { createIntakeTicket, getStoreLocations } from "./intake";
-import { generateQRCodeDataUrl, formatQRLabelZPL, generateLabelPreview } from "./qrLabel";
 
 // ─── Scanner Router ─────────────────────────────────────────────────────────────
 
@@ -67,12 +65,12 @@ const scannerRouter = router({
     }),
 
   checkinFurniture: publicProcedure
-    .input(z.object({ salesOrderLineId: z.string().min(1), storeCd: z.string().min(1), locCd: z.string().optional() }))
+    .input(z.object({ salesOrderLineId: z.string().min(1), binLocation: z.string().optional() }))
     .mutation(async ({ input, ctx }) => {
-      const props: Record<string, string> = { store_cd: input.storeCd };
-      if (input.locCd) props.loc_cd = input.locCd;
+      const today = new Date().toISOString().split("T")[0];
+      const props: Record<string, string> = { line_status: "Received", received_date: today };
+      if (input.binLocation) props.bin_location = input.binLocation;
       const updated = await updateFurniture(input.salesOrderLineId, props);
-      const locationNote = input.locCd ? `Store: ${input.storeCd}, Location: ${input.locCd}` : `Store: ${input.storeCd}`;
       await insertScanHistory({
         scannedCode: `SOL:${input.salesOrderLineId}`,
         resolvedType: "sales_order_line",
@@ -80,7 +78,7 @@ const scannerRouter = router({
         displayName: updated.name ?? input.salesOrderLineId,
         action: "checkin",
         success: 1,
-        note: locationNote,
+        note: input.binLocation ? `Bin: ${input.binLocation}` : undefined,
         userId: ctx.user?.id ?? null,
       }).catch(() => {});
       return updated;
@@ -133,59 +131,6 @@ const scannerRouter = router({
   getSalesOrderLine: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => getSalesOrderLineById(input.id)),
-
-  submitIntakeForm: publicProcedure
-    .input(z.object({
-      acknowledgementNumber: z.string().min(1),
-      customerCode: z.string().min(1),
-      storeCd: z.string().min(1),
-      damageNotes: z.string().optional(),
-      photoUrl: z.string().optional(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      const result = await createIntakeTicket(input);
-      await insertScanHistory({
-        scannedCode: input.acknowledgementNumber,
-        resolvedType: "intake_form",
-        hubspotId: result.ticketId,
-        displayName: `Intake - ${input.acknowledgementNumber}`,
-        action: "view" as const,
-        success: result.success ? 1 : 0,
-        note: `Store: ${input.storeCd}, Customer: ${input.customerCode}`,
-        userId: ctx.user?.id ?? null,
-      }).catch(() => {});
-      return result;
-    }),
-
-  getStores: publicProcedure
-    .query(async () => getStoreLocations()),
-
-  generateServiceTag: publicProcedure
-    .input(z.object({
-      acknowledgementNumber: z.string().min(1),
-      customerCode: z.string().min(1),
-      serviceOrderNumber: z.string().optional(),
-      partDescription: z.string().optional(),
-      storeCd: z.string().optional(),
-    }))
-    .query(async ({ input }) => {
-      const qrData = JSON.stringify({
-        ack: input.acknowledgementNumber,
-        cd: input.customerCode,
-        so: input.serviceOrderNumber,
-        st: input.storeCd,
-      });
-      const qrDataUrl = await generateQRCodeDataUrl(qrData);
-      const zplLabel = formatQRLabelZPL(input);
-      const preview = generateLabelPreview(input);
-      return { qrDataUrl, zplLabel, preview };
-    }),
-});
-
-const intakeRouter = router({
-  submitForm: scannerRouter.submitIntakeForm,
-  getStores: scannerRouter.getStores,
-  generateServiceTag: scannerRouter.generateServiceTag,
 });
 
 // ─── App Router ─────────────────────────────────────────────────────────────
@@ -201,7 +146,6 @@ export const appRouter = router({
     }),
   }),
   scanner: scannerRouter,
-  intake: intakeRouter,
 });
 
 export type AppRouter = typeof appRouter;

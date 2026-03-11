@@ -280,8 +280,7 @@ const FURNITURE_PROPS = [
   "vendor_code",
   "part_delivery_method",
   "line_status",
-  "store_cd",
-  "loc_cd",
+  "bin_location",
   "hs_object_id",
 ].join(",");
 
@@ -312,14 +311,10 @@ export async function getFurnitureById(id: string): Promise<SalesOrderLineRecord
 
 export async function updateFurniture(
   id: string,
-  props: { line_status?: string; received_date?: string; store_cd?: string; loc_cd?: string }
+  props: { line_status?: string; received_date?: string; bin_location?: string }
 ): Promise<SalesOrderLineRecord> {
   const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/${id}`;
-  // Filter out null/undefined values to avoid HubSpot validation errors
-  const cleanProps = Object.fromEntries(
-    Object.entries(props).filter(([, v]) => v != null)
-  );
-  const { data } = await axios.patch(url, { properties: cleanProps }, { headers: headers() });
+  const { data } = await axios.patch(url, { properties: props }, { headers: headers() });
   return mapFurniture(data);
 }
 
