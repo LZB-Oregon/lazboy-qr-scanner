@@ -9,18 +9,18 @@
 - [ ] Add fields to IST Ticket: `dest_store_cd`, `origin_store_cd`, `service_piece_id`
 
 ### Check-In Form (iPad) - SIMPLIFIED WORKFLOW
-- [ ] Capture furniture photo (iPad camera)
-- [ ] Ask for location info:
-  - [ ] `St` (Store: dropdown 00-09)
-  - [ ] `Loc` (Location: dropdown - predefined values)
-- [ ] Ask: "Create IST transfer?" (Yes/No)
-  - [ ] If YES: ask for `DEST_STORE_CD` (default 00)
-  - [ ] If NO: skip IST creation
-- [ ] Generate unique ID (MMDDYSEQ## format)
-- [ ] Create/update Sales Order Line
-- [ ] Prompt: "Print tag now?" (Yes/No)
+- [x] Capture furniture photo (iPad camera)
+- [x] Ask for location info:
+  - [x] `St` (Store: dropdown 00-09)
+  - [x] `Loc` (Location: dropdown - predefined values)
+- [x] Ask: "Create IST transfer?" (Yes/No)
+  - [x] If YES: ask for `DEST_STORE_CD` (default 00)
+  - [x] If NO: skip IST creation
+- [x] Generate unique ID (MMDDYSEQ## format)
+- [ ] Create/update Sales Order Line in HubSpot
+- [x] Prompt: "Print tag now?" (Yes/No)
   - [ ] If YES: send to Zebra printer
-  - [ ] If NO: done
+  - [x] If NO: done
 
 ### Label Printing (Zebra)
 - [ ] Integrate Zebra Browser Print SDK
