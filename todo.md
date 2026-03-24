@@ -52,6 +52,12 @@
 - [x] Filter by store
 - [x] Search by customer name or order number
 
+### Parts Display
+- [x] Display parts_line_name instead of ALI numbers
+- [x] Show SKU as fallback
+- [x] Display cust_code
+- [x] Add live data dashboard to home page (Parts Orders & Parts Lines counts)
+
 ### Testing & Validation
 - [ ] Test check-in workflow end-to-end
 - [ ] Test photo capture on iPad

@@ -47,6 +47,10 @@ export interface PartsLineRecord {
   binLocation: string | null;
   aliNumber: string | null;
   styleNumber: string | null;
+  // Display fields
+  partsLineName: string | null;  // Display name of the part
+  sku: string | null;  // SKU (fallback if no display name)
+  custCode: string | null;  // Customer code
   // associations
   partsOrderId?: string;
   poNumber?: string;
@@ -107,6 +111,9 @@ const PARTS_LINE_PROPS = [
   "bin_location",
   "ali_number",
   "style_number",
+  "parts_line_name",
+  "sku",
+  "cust_code",
   "hs_object_id",
 ].join(",");
 
@@ -128,6 +135,9 @@ function mapPartsLine(raw: Record<string, unknown>): PartsLineRecord {
     binLocation: p.bin_location ?? null,
     aliNumber: p.ali_number ?? null,
     styleNumber: p.style_number ?? null,
+    partsLineName: p.parts_line_name ?? null,
+    sku: p.sku ?? null,
+    custCode: p.cust_code ?? null,
   };
 }
 
@@ -722,4 +732,210 @@ export async function updateFurnitureAck(
     { headers: headers() }
   );
   return mapFurniture(data);
+}
+
+
+// ─── IST Ticket Creation ──────────────────────────────────────────────────────
+
+const IST_PIPELINE_ID = "883843910";
+const IST_TICKET_TYPE = "in store transfer";
+
+/**
+ * Create an IST (In-Store Transfer) ticket
+ * Uses the standard Ticket object with IST pipeline
+ */
+export async function createIstTicket(
+  servicePieceId: string,
+  originStoreCd: string,
+  destStoreCd: string,
+  furnitureId: string,
+  customerName?: string
+): Promise<{ id: string; ticketNumber: string }> {
+  const url = `${HS_BASE}/crm/v3/objects/tickets`;
+  
+  const properties: Record<string, string> = {
+    subject: `IST: ${servicePieceId} - ${originStoreCd} → ${destStoreCd}`,
+    hs_ticket_priority: "medium",
+    hs_ticket_category: IST_TICKET_TYPE,
+    // Custom fields for IST tracking
+    ist_origin_store: originStoreCd,
+    ist_destination_store: destStoreCd,
+    ist_service_piece_id: servicePieceId,
+  };
+  
+  if (customerName) {
+    properties.hs_ticket_subject = `${customerName} - IST ${servicePieceId}`;
+  }
+  
+  const body = {
+    properties,
+    associations: [
+      {
+        types: [
+          {
+            associationCategory: "HUBSPOT_DEFINED",
+            associationType: "ticket_to_object",
+          },
+        ],
+        id: furnitureId,
+      },
+    ],
+  };
+  
+  const { data } = await axios.post(url, body, { headers: headers() });
+  
+  return {
+    id: data.id,
+    ticketNumber: data.properties?.hs_ticket_id ?? data.id,
+  };
+}
+
+/**
+ * Get IST tickets by service piece ID
+ */
+export async function getIstTicketByServicePieceId(
+  servicePieceId: string
+): Promise<{ id: string; ticketNumber: string; status: string } | null> {
+  const url = `${HS_BASE}/crm/v3/objects/tickets/search`;
+  
+  const body = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: "ist_service_piece_id",
+            operator: "EQ",
+            value: servicePieceId,
+          },
+        ],
+      },
+    ],
+    properties: ["hs_ticket_id", "hs_pipeline_stage"],
+    limit: 1,
+  };
+  
+  const { data } = await axios.post(url, body, { headers: headers() });
+  
+  if (data.results && data.results.length > 0) {
+    const ticket = data.results[0];
+    return {
+      id: ticket.id,
+      ticketNumber: ticket.properties?.hs_ticket_id ?? ticket.id,
+      status: ticket.properties?.hs_pipeline_stage ?? "unknown",
+    };
+  }
+  
+  return null;
+}
+
+
+// ─── Live Data Queries (for Proof of Concept) ─────────────────────────────────
+
+const PARTS_ORDER_PIPELINE_ID = "865564451";
+const PARTS_LINE_PIPELINE_ID = "866840368";
+
+/**
+ * Get live Parts Orders by pipeline stage
+ * Active stages: To Order, Partially Received, Received, Verified
+ */
+export async function getLivePartsOrders(): Promise<
+  Array<PartsOrderRecord & { pipelineStage: string }>
+> {
+  const url = `${HS_BASE}/crm/v3/objects/2-57143005/search`;
+  
+  const body = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: "hs_pipeline_stage",
+            operator: "IN",
+            values: [
+              "6e4e9a5c-4b2c-11ee-8000-0a00000001a2", // To Order
+              "6e4e9a5c-4b2c-11ee-8000-0a00000001a3", // Partially Received
+              "6e4e9a5c-4b2c-11ee-8000-0a00000001a4", // Received
+              "6e4e9a5c-4b2c-11ee-8000-0a00000001a5", // Verified
+            ],
+          },
+        ],
+      },
+    ],
+    properties: PARTS_ORDER_PROPS.split(","),
+    limit: 100,
+    sorts: [{ propertyName: "hs_createdate", direction: "DESCENDING" }],
+  };
+  
+  try {
+    const { data } = await axios.post(url, body, { headers: headers() });
+    return (data.results ?? []).map((raw: Record<string, unknown>) => ({
+      ...mapPartsOrder(raw),
+      pipelineStage: (raw.properties as any)?.hs_pipeline_stage ?? "unknown",
+    }));
+  } catch (err) {
+    console.error("Error fetching live parts orders:", err);
+    return [];
+  }
+}
+
+/**
+ * Get live Parts Lines by pipeline stage
+ * Active stages: To Order, Ordered
+ */
+export async function getLivePartsLines(): Promise<
+  Array<PartsLineRecord & { pipelineStage: string }>
+> {
+  const url = `${HS_BASE}/crm/v3/objects/2-57157764/search`;
+  
+  const body = {
+    filterGroups: [
+      {
+        filters: [
+          {
+            propertyName: "hs_pipeline_stage",
+            operator: "IN",
+            values: [
+              "6e4e9a5c-4b2c-11ee-8000-0a00000001b1", // To Order
+              "6e4e9a5c-4b2c-11ee-8000-0a00000001b2", // Ordered
+            ],
+          },
+        ],
+      },
+    ],
+    properties: PARTS_LINE_PROPS.split(","),
+    limit: 100,
+    sorts: [{ propertyName: "hs_createdate", direction: "DESCENDING" }],
+  };
+  
+  try {
+    const { data } = await axios.post(url, body, { headers: headers() });
+    return (data.results ?? []).map((raw: Record<string, unknown>) => ({
+      ...mapPartsLine(raw),
+      pipelineStage: (raw.properties as any)?.hs_pipeline_stage ?? "unknown",
+    }));
+  } catch (err) {
+    console.error("Error fetching live parts lines:", err);
+    return [];
+  }
+}
+
+/**
+ * Get live data summary for dashboard
+ */
+export async function getLiveDataSummary(): Promise<{
+  partsOrdersCount: number;
+  partsLinesCount: number;
+  partsOrders: Array<PartsOrderRecord & { pipelineStage: string }>;
+  partsLines: Array<PartsLineRecord & { pipelineStage: string }>;
+}> {
+  const [partsOrders, partsLines] = await Promise.all([
+    getLivePartsOrders(),
+    getLivePartsLines(),
+  ]);
+  
+  return {
+    partsOrdersCount: partsOrders.length,
+    partsLinesCount: partsLines.length,
+    partsOrders,
+    partsLines,
+  };
 }

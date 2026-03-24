@@ -40,6 +40,10 @@ export default function Home() {
     { limit: 5 },
     { refetchOnWindowFocus: false }
   );
+  const { data: liveData } = trpc.scanner.getLiveData.useQuery(
+    undefined,
+    { refetchInterval: 30000, refetchOnWindowFocus: true }
+  );
 
   const pendingCount = pendingParts?.length ?? 0;
 
@@ -63,6 +67,28 @@ export default function Home() {
           Scan barcodes to receive parts and check in furniture
         </p>
       </div>
+
+      {/* Live Data Dashboard */}
+      {liveData && (liveData.partsOrdersCount > 0 || liveData.partsLinesCount > 0) && (
+        <div className="px-5 mt-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-foreground">Live Data</h2>
+            <span className="text-xs text-primary font-medium">Real-time</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-4 rounded-xl bg-card border border-primary/20 flex flex-col">
+              <p className="text-xs text-muted-foreground mb-1">Parts Orders</p>
+              <p className="text-2xl font-bold text-primary">{liveData.partsOrdersCount}</p>
+              <p className="text-xs text-muted-foreground mt-1">Active</p>
+            </div>
+            <div className="p-4 rounded-xl bg-card border border-warning/20 flex flex-col">
+              <p className="text-xs text-muted-foreground mb-1">Parts Lines</p>
+              <p className="text-2xl font-bold text-warning">{liveData.partsLinesCount}</p>
+              <p className="text-xs text-muted-foreground mt-1">Awaiting</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick actions */}
       <div className="px-5 space-y-3">
@@ -133,10 +159,10 @@ export default function Home() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
-                      {line.spotProNumber ? `PRO: ${line.spotProNumber}` : `ALI: ${line.aliNumber ?? line.id}`}
+                      {line.partsLineName || line.sku || `Part ${line.id.slice(0, 8)}`}
                     </p>
-                    {line.partCategory && (
-                      <p className="text-xs text-muted-foreground">{line.partCategory}</p>
+                    {line.custCode && (
+                      <p className="text-xs text-muted-foreground">Code: {line.custCode}</p>
                     )}
                   </div>
                   <span className="badge-ordered text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0">

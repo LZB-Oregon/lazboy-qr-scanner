@@ -21,6 +21,9 @@ import {
   searchFurniture,
   updateFurnitureAck,
   generateServicePieceId,
+  createIstTicket,
+  getIstTicketByServicePieceId,
+  getLiveDataSummary,
 } from "./hubspot";
 import { insertScanHistory, getScanHistory, getScanHistoryByUser } from "./db";
 
@@ -211,6 +214,11 @@ const scannerRouter = router({
     .mutation(async ({ input }) => {
       return updateFurnitureAck(input.furnitureId, input.ackValue);
     }),
+
+  // Live Data for Proof of Concept
+  getLiveData: publicProcedure.query(async () => {
+    return getLiveDataSummary();
+  }),
 });
 
 // ─── Root Router ────────────────────────────────────────────────────────────────
