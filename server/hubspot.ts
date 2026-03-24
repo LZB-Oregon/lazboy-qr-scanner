@@ -82,6 +82,13 @@ export interface SalesOrderLineRecord {
   locCd: string | null;    // location code within store
   customerName: string | null;  // customer name for search/filter
   serviceOrderNumber: string | null;  // service order number for search/filter
+  // V1: GERS IST Workflow fields
+  servicePieceId: string | null;  // unique ID MMDDYSEQ##
+  furniturePhotoUrl: string | null;  // S3 URL to furniture photo
+  ackPhotoUrl: string | null;  // S3 URL to ACK tag photo
+  ackValue: string | null;  // manually entered ACK value
+  destStoreCd: string | null;  // destination store for IST
+  puDelStoreCd: string | null;  // pickup/delivery store (customer's home store)
 }
 
 // ─── Parts Line ───────────────────────────────────────────────────────────────
@@ -257,6 +264,12 @@ function mapSalesOrderLine(raw: Record<string, unknown>): SalesOrderLineRecord {
     locCd: p.loc_cd ?? null,
     customerName: p.customer_name ?? null,
     serviceOrderNumber: p.service_order_number ?? null,
+    servicePieceId: null,
+    furniturePhotoUrl: null,
+    ackPhotoUrl: null,
+    ackValue: null,
+    destStoreCd: null,
+    puDelStoreCd: null,
   };
 }
 
@@ -293,6 +306,12 @@ const FURNITURE_PROPS = [
   "loc_cd",
   "customer_name",
   "service_order_number",
+  "service_piece_id",
+  "furniture_photo_url",
+  "ack_photo_url",
+  "ack_value",
+  "dest_store_cd",
+  "pu_del_store_cd",
   "hs_object_id",
 ].join(",");
 
@@ -316,6 +335,12 @@ function mapFurniture(raw: Record<string, unknown>): SalesOrderLineRecord {
     locCd: p.loc_cd ?? null,
     customerName: p.customer_name ?? null,
     serviceOrderNumber: p.service_order_number ?? null,
+    servicePieceId: p.service_piece_id ?? null,
+    furniturePhotoUrl: p.furniture_photo_url ?? null,
+    ackPhotoUrl: p.ack_photo_url ?? null,
+    ackValue: p.ack_value ?? null,
+    destStoreCd: p.dest_store_cd ?? null,
+    puDelStoreCd: p.pu_del_store_cd ?? null,
   };
 }
 
@@ -568,4 +593,133 @@ export async function getStoreInventory(
       lastScanAt: (raw as any).hs_lastmodifieddate,
     } as InventoryItem;
   });
+}
+
+
+// ─── V1: GERS IST Workflow Functions ──────────────────────────────────────────
+
+/**
+ * Generate unique ID in MMDDYSEQ## format (GERS standard)
+ * MM = Month, DD = Day, Y = one's digit of year, SEQ## = sequence
+ * Example: 03241001 (March 24, 2026, sequence 01)
+ */
+export function generateServicePieceId(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const year = String(now.getFullYear() % 10); // one's digit
+  const sequence = String(Math.floor(Math.random() * 100)).padStart(2, "0");
+  return `${month}${day}${year}${sequence}`;
+}
+
+/**
+ * Check-in furniture: update store, location, and generate service piece ID
+ */
+export async function checkInFurniture(
+  furnitureId: string,
+  storeCd: string,
+  locCd: string,
+  furniturePhotoUrl?: string,
+  ackPhotoUrl?: string,
+  destStoreCd?: string,
+  puDelStoreCd?: string
+): Promise<SalesOrderLineRecord> {
+  const servicePieceId = generateServicePieceId();
+  
+  const props: Record<string, string> = {
+    store_cd: storeCd,
+    loc_cd: locCd,
+    service_piece_id: servicePieceId,
+  };
+  
+  if (furniturePhotoUrl) props.furniture_photo_url = furniturePhotoUrl;
+  if (ackPhotoUrl) props.ack_photo_url = ackPhotoUrl;
+  if (destStoreCd) props.dest_store_cd = destStoreCd;
+  if (puDelStoreCd) props.pu_del_store_cd = puDelStoreCd;
+  
+  const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/${furnitureId}`;
+  const { data } = await axios.patch(url, { properties: props }, { headers: headers() });
+  return mapFurniture(data);
+}
+
+/**
+ * Create a new furniture record (Sales Order Line) if it doesn't exist
+ */
+export async function createFurniture(
+  name: string,
+  customerName: string,
+  serviceOrderNumber?: string,
+  storeCd?: string,
+  locCd?: string
+): Promise<SalesOrderLineRecord> {
+  const props: Record<string, string> = {
+    name,
+    customer_name: customerName,
+  };
+  
+  if (serviceOrderNumber) props.service_order_number = serviceOrderNumber;
+  if (storeCd) props.store_cd = storeCd;
+  if (locCd) props.loc_cd = locCd;
+  
+  const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}`;
+  const { data } = await axios.post(url, { properties: props }, { headers: headers() });
+  return mapFurniture(data);
+}
+
+/**
+ * Search furniture by customer name or order number
+ */
+export async function searchFurniture(
+  customerName?: string,
+  serviceOrderNumber?: string,
+  limit = 20
+): Promise<SalesOrderLineRecord[]> {
+  const filters = [];
+  
+  if (customerName?.trim()) {
+    filters.push({
+      propertyName: "customer_name",
+      operator: "CONTAINS_TOKEN",
+      value: customerName.trim(),
+    });
+  }
+  
+  if (serviceOrderNumber?.trim()) {
+    filters.push({
+      propertyName: "service_order_number",
+      operator: "CONTAINS_TOKEN",
+      value: serviceOrderNumber.trim(),
+    });
+  }
+  
+  if (filters.length === 0) {
+    return [];
+  }
+  
+  const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/search`;
+  const body = {
+    filterGroups: [{ filters }],
+    properties: FURNITURE_PROPS.split(","),
+    limit,
+    sorts: [{ propertyName: "hs_createdate", direction: "DESCENDING" }],
+  };
+  
+  const { data } = await axios.post(url, body, { headers: headers() });
+  return (data.results ?? []).map(mapFurniture);
+}
+
+/**
+ * Update furniture with ACK value (manually entered by CSR)
+ */
+export async function updateFurnitureAck(
+  furnitureId: string,
+  ackValue: string
+): Promise<SalesOrderLineRecord> {
+  const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/${furnitureId}`;
+  const { data } = await axios.patch(
+    url,
+    { properties: { ack_value: ackValue } },
+    { headers: headers() }
+  );
+  return mapFurniture(data);
 }

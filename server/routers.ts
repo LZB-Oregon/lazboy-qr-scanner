@@ -16,6 +16,11 @@ import {
   updateFurniture,
   getPartsToReceive,
   getStoreInventory,
+  checkInFurniture,
+  createFurniture,
+  searchFurniture,
+  updateFurnitureAck,
+  generateServicePieceId,
 } from "./hubspot";
 import { insertScanHistory, getScanHistory, getScanHistoryByUser } from "./db";
 
@@ -146,6 +151,65 @@ const scannerRouter = router({
     }))
     .query(async ({ input }) => {
       return getStoreInventory(input.storeCd, input.customerName, input.serviceOrderNumber);
+    }),
+
+  // V1: GERS IST Workflow
+  searchFurniture: publicProcedure
+    .input(z.object({
+      customerName: z.string().optional(),
+      serviceOrderNumber: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      return searchFurniture(input.customerName, input.serviceOrderNumber);
+    }),
+
+  checkIn: publicProcedure
+    .input(z.object({
+      furnitureId: z.string().min(1),
+      storeCd: z.string().min(1),
+      locCd: z.string().min(1),
+      furniturePhotoUrl: z.string().optional(),
+      ackPhotoUrl: z.string().optional(),
+      destStoreCd: z.string().optional(),
+      puDelStoreCd: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      return checkInFurniture(
+        input.furnitureId,
+        input.storeCd,
+        input.locCd,
+        input.furniturePhotoUrl,
+        input.ackPhotoUrl,
+        input.destStoreCd,
+        input.puDelStoreCd
+      );
+    }),
+
+  createFurniture: publicProcedure
+    .input(z.object({
+      name: z.string().min(1),
+      customerName: z.string().min(1),
+      serviceOrderNumber: z.string().optional(),
+      storeCd: z.string().optional(),
+      locCd: z.string().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      return createFurniture(
+        input.name,
+        input.customerName,
+        input.serviceOrderNumber,
+        input.storeCd,
+        input.locCd
+      );
+    }),
+
+  updateFurnitureAck: publicProcedure
+    .input(z.object({
+      furnitureId: z.string().min(1),
+      ackValue: z.string().min(1),
+    }))
+    .mutation(async ({ input }) => {
+      return updateFurnitureAck(input.furnitureId, input.ackValue);
     }),
 });
 
