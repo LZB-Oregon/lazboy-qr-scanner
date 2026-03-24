@@ -32,3 +32,58 @@
 ## Bug Fixes
 - [x] Fixed 400 error on scanner lookup: Added URL parsing to extract HubSpot IDs from full HubSpot URLs (e.g., https://app.hubspot.com/contacts/.../record/2-57157764/47526582026)
 - [x] Added comprehensive error handling to all search/lookup operations to prevent invalid API calls
+
+
+## Phase 1: Furniture Intake & QR Labels (COMPLETE)
+- [x] Photo capture component (camera input)
+- [x] Furniture intake form: ack#, cust_code, damage notes, photo
+- [x] First Name, Last Name, Phone Number, SKU fields (required)
+- [x] Make Acknowledgement Number mandatory (validation)
+- [x] Store code dropdown selector
+- [x] Create Ticket in HubSpot with intake data
+- [x] Send form to HubSpot inbox
+- [x] Service tag QR generation (server-side using qrcode package)
+- [x] ZPL label formatting for Blackmark Zebra printer
+- [x] All 6 tabs working (Home, Scan, Receive, Search, History, Intake)
+
+## Phase 2: Store Inventory & Location Tracking (IN PROGRESS)
+
+### Store Locations (COMPLETE)
+- [x] Define all 9 store locations (00 Warehouse, 01-05, 07-09)
+- [x] Update store code dropdown to include all 9 locations
+- [x] Add store location constants to shared config
+- [x] Update furniture check-in to use store_cd and loc_cd fields
+
+### Store Inventory Feature (MOSTLY COMPLETE)
+- [x] Build store inventory page with filterable list
+- [x] Filter by store location (all 9 stores)
+- [x] Display furniture details: name, SKU, location code, last scan time
+- [x] Add Inventory tab to bottom navigation
+- [x] Real-time inventory count per store
+- [x] Add getStoreInventory tRPC query
+- [ ] Filter by location checkpoint (7 statuses) - TODO: implement checkpoint mapping
+- [ ] Filter by customer name or service order - TODO: add search filters
+
+### Location Tracking (7 Checkpoints) (IN PROGRESS)
+- [x] Define 7-checkpoint location tracking workflow with colors
+- [x] Color-coded badges for each checkpoint
+- [ ] Implement checkpoint mapping from loc_cd field
+- [ ] Location history timeline (show previous scans with timestamps)
+- [ ] Update `sol_location` field in HubSpot on each scan
+- [ ] Track `sol_location_updated` timestamp
+- [ ] Track `sol_location_updated_by` employee name
+
+### QR Label Printing (NOT STARTED)
+- [ ] Zebra Browser Print SDK integration
+- [ ] "Print Label" button on intake success screen
+- [ ] Send ZPL directly to Blackmark Zebra printer
+- [ ] Label preview before printing
+- [ ] Batch label printing (multiple items at once)
+
+### Testing & Polish (COMPLETE)
+- [x] Test all 9 store locations in dropdown
+- [x] Verify all 10 tests pass (1 skipped)
+- [x] TypeScript clean check
+- [ ] Test inventory filtering by store/location/customer
+- [ ] Test location checkpoint updates to HubSpot
+- [ ] Test Zebra printer integration

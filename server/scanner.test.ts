@@ -16,6 +16,7 @@ vi.mock("./hubspot", () => ({
   updateSalesOrderLine: vi.fn(),
   updateFurniture: vi.fn(),
   getPartsToReceive: vi.fn(),
+  getStoreInventory: vi.fn(),
 }));
 
 vi.mock("./db", () => ({
@@ -61,6 +62,8 @@ const mockPartsLine = {
   styleNumber: "010.0563",
   partsOrderId: "456",
   poNumber: "PO-2024-001",
+  storeCd: null,
+  locCd: null,
 };
 
 const mockPartsOrder = {
@@ -71,7 +74,7 @@ const mockPartsOrder = {
   expectedArrival: "2026-03-15",
   partsLocked: false,
   orderNotes: null,
-  partsLines: [mockPartsLine],
+  partsLines: [{ ...mockPartsLine }],
 };
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -139,7 +142,7 @@ describe("scanner.receivePart", () => {
 describe("scanner.checkinFurniture", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("calls updateFurniture with Received status", async () => {
+  it("calls updateFurniture with Received status and store_cd", async () => {
     const mockSOL = {
       id: "789",
       objectType: "sales_order_line" as const,
@@ -153,16 +156,20 @@ describe("scanner.checkinFurniture", () => {
       vendorCode: null,
       partDeliveryMethod: "Standard",
       lineStatus: "Received",
-      binLocation: "FLOOR-A",
+      binLocation: null,
+      storeCd: "01",
+      locCd: null,
     };
     vi.mocked(updateFurniture).mockResolvedValue(mockSOL);
     const caller = appRouter.createCaller(makeCtx());
-    const result = await caller.scanner.checkinFurniture({ salesOrderLineId: "789", binLocation: "FLOOR-A" });
+    const result = await caller.scanner.checkinFurniture({ salesOrderLineId: "789", storeCd: "01", locCd: "FLOOR-A" });
     expect(updateFurniture).toHaveBeenCalledWith("789", expect.objectContaining({
       line_status: "Received",
-      bin_location: "FLOOR-A",
+      store_cd: "01",
+      loc_cd: "FLOOR-A",
     }));
     expect(result.lineStatus).toBe("Received");
+    expect(result.storeCd).toBe("01");
   });
 });
 

@@ -9,14 +9,15 @@ import ScannerPage from "./pages/ScannerPage";
 import SearchPage from "./pages/SearchPage";
 import ReceivePage from "./pages/ReceivePage";
 import HistoryPage from "./pages/HistoryPage";
-import { Home as HomeIcon, ScanLine, Search, Package, History } from "lucide-react";
+import InventoryPage from "./pages/InventoryPage";
+import { Home as HomeIcon, ScanLine, Search, Package, History, Warehouse } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { href: "/", icon: HomeIcon, label: "Home" },
   { href: "/scan", icon: ScanLine, label: "Scan" },
   { href: "/receive", icon: Package, label: "Receive" },
-  { href: "/search", icon: Search, label: "Search" },
+  { href: "/inventory", icon: Warehouse, label: "Inventory" },
   { href: "/history", icon: History, label: "History" },
 ];
 
@@ -73,6 +74,7 @@ function Router() {
         <Route path="/scan" component={ScannerPage} />
         <Route path="/receive" component={ReceivePage} />
         <Route path="/search" component={SearchPage} />
+        <Route path="/inventory" component={InventoryPage} />
         <Route path="/history" component={HistoryPage} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />

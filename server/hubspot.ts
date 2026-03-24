@@ -78,6 +78,8 @@ export interface SalesOrderLineRecord {
   partDeliveryMethod: string | null;
   lineStatus: string | null;
   binLocation: string | null;
+  storeCd: string | null;  // 2-digit store code (00-09)
+  locCd: string | null;    // location code within store
 }
 
 // ─── Parts Line ───────────────────────────────────────────────────────────────
@@ -249,6 +251,8 @@ function mapSalesOrderLine(raw: Record<string, unknown>): SalesOrderLineRecord {
     partDeliveryMethod: p.part_delivery_method ?? null,
     lineStatus: p.line_status ?? null,
     binLocation: p.bin_location ?? null,
+    storeCd: p.store_cd ?? null,
+    locCd: p.loc_cd ?? null,
   };
 }
 
@@ -281,6 +285,8 @@ const FURNITURE_PROPS = [
   "part_delivery_method",
   "line_status",
   "bin_location",
+  "store_cd",
+  "loc_cd",
   "hs_object_id",
 ].join(",");
 
@@ -300,6 +306,8 @@ function mapFurniture(raw: Record<string, unknown>): SalesOrderLineRecord {
     partDeliveryMethod: p.part_delivery_method ?? null,
     lineStatus: p.line_status ?? null,
     binLocation: p.bin_location ?? null,
+    storeCd: p.store_cd ?? null,
+    locCd: p.loc_cd ?? null,
   };
 }
 
@@ -311,7 +319,7 @@ export async function getFurnitureById(id: string): Promise<SalesOrderLineRecord
 
 export async function updateFurniture(
   id: string,
-  props: { line_status?: string; received_date?: string; bin_location?: string }
+  props: { line_status?: string; received_date?: string; bin_location?: string; store_cd?: string; loc_cd?: string }
 ): Promise<SalesOrderLineRecord> {
   const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/${id}`;
   const { data } = await axios.patch(url, { properties: props }, { headers: headers() });
@@ -498,4 +506,38 @@ export async function getPartsToReceive(limit = 50): Promise<PartsLineRecord[]> 
     [{ filters: [{ propertyName: "line_status", operator: "EQ", value: "Ordered" }] }],
     limit
   );
+}
+
+
+// ─── Store Inventory ──────────────────────────────────────────────────────────
+
+export interface InventoryItem extends SalesOrderLineRecord {
+  locationCheckpoint?: number;
+  lastScanAt?: string;
+}
+
+export async function getStoreInventory(storeCd: string): Promise<InventoryItem[]> {
+  const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/search`;
+  const body = {
+    filterGroups: [
+      {
+        filters: [
+          { propertyName: "store_cd", operator: "EQ", value: storeCd },
+        ],
+      },
+    ],
+    properties: FURNITURE_PROPS.split(","),
+    limit: 100,
+    sorts: [{ propertyName: "hs_createdate", direction: "DESCENDING" }],
+  };
+  const { data } = await axios.post(url, body, { headers: headers() });
+  return (data.results ?? []).map((raw: Record<string, unknown>) => {
+    const item = mapFurniture(raw);
+    return {
+      ...item,
+      // TODO: Add location checkpoint mapping from loc_cd or location tracking
+      locationCheckpoint: 3, // Default to "Received at Warehouse"
+      lastScanAt: (raw as any).hs_lastmodifieddate,
+    } as InventoryItem;
+  });
 }

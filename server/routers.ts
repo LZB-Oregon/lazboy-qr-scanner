@@ -1,4 +1,4 @@
-import { z } from "zod";
+import z from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -15,6 +15,7 @@ import {
   updateSalesOrderLine,
   updateFurniture,
   getPartsToReceive,
+  getStoreInventory,
 } from "./hubspot";
 import { insertScanHistory, getScanHistory, getScanHistoryByUser } from "./db";
 
@@ -65,12 +66,21 @@ const scannerRouter = router({
     }),
 
   checkinFurniture: publicProcedure
-    .input(z.object({ salesOrderLineId: z.string().min(1), binLocation: z.string().optional() }))
+    .input(z.object({
+      salesOrderLineId: z.string().min(1),
+      storeCd: z.string().min(1),
+      locCd: z.string().optional(),
+    }))
     .mutation(async ({ input, ctx }) => {
       const today = new Date().toISOString().split("T")[0];
-      const props: Record<string, string> = { line_status: "Received", received_date: today };
-      if (input.binLocation) props.bin_location = input.binLocation;
+      const props: Record<string, string> = {
+        line_status: "Received",
+        received_date: today,
+        store_cd: input.storeCd,
+      };
+      if (input.locCd) props.loc_cd = input.locCd;
       const updated = await updateFurniture(input.salesOrderLineId, props);
+      const locNote = input.locCd ? `, Loc: ${input.locCd}` : "";
       await insertScanHistory({
         scannedCode: `SOL:${input.salesOrderLineId}`,
         resolvedType: "sales_order_line",
@@ -78,7 +88,7 @@ const scannerRouter = router({
         displayName: updated.name ?? input.salesOrderLineId,
         action: "checkin",
         success: 1,
-        note: input.binLocation ? `Bin: ${input.binLocation}` : undefined,
+        note: `Store: ${input.storeCd}${locNote}`,
         userId: ctx.user?.id ?? null,
       }).catch(() => {});
       return updated;
@@ -100,52 +110,46 @@ const scannerRouter = router({
         const lines = await searchPartsLines([{ filters: [{ propertyName: "ali_number", operator: "CONTAINS_TOKEN", value: q }] }]);
         return { orders: [], lines };
       }
-      const [orders, proLines, aliLines] = await Promise.all([
-        searchPartsOrders([{ filters: [{ propertyName: "po_number", operator: "CONTAINS_TOKEN", value: q }] }]).catch(() => []),
-        searchPartsLines([{ filters: [{ propertyName: "spot_pro_number", operator: "CONTAINS_TOKEN", value: q }] }]).catch(() => []),
-        searchPartsLines([{ filters: [{ propertyName: "ali_number", operator: "CONTAINS_TOKEN", value: q }] }]).catch(() => []),
+      // auto: try all types
+      const [orders, lines] = await Promise.all([
+        searchPartsOrders([{ filters: [{ propertyName: "po_number", operator: "CONTAINS_TOKEN", value: q }] }]),
+        searchPartsLines([
+          {
+            filters: [
+              { propertyName: "spot_pro_number", operator: "CONTAINS_TOKEN", value: q },
+              { propertyName: "ali_number", operator: "CONTAINS_TOKEN", value: q },
+            ],
+          },
+        ]),
       ]);
-      const lineMap = new Map([...proLines, ...aliLines].map((l) => [l.id, l]));
-      return { orders, lines: Array.from(lineMap.values()) };
+      return { orders, lines };
     }),
 
   partsToReceive: publicProcedure
-    .input(z.object({ limit: z.number().default(50) }).optional())
-    .query(async ({ input }) => getPartsToReceive(input?.limit ?? 50)),
+    .input(z.object({ limit: z.number().default(50) }))
+    .query(async () => {
+      return getPartsToReceive();
+    }),
 
   scanHistory: publicProcedure
-    .input(z.object({ limit: z.number().default(50) }).optional())
-    .query(async ({ input, ctx }) => {
-      if (ctx.user) return getScanHistoryByUser(ctx.user.id, input?.limit ?? 50);
-      return getScanHistory(input?.limit ?? 50);
+    .input(z.object({ limit: z.number().default(50) }))
+    .query(async ({ ctx }) => {
+      if (!ctx.user?.id) return [];
+      return getScanHistoryByUser(ctx.user.id);
     }),
 
-  getPartsLine: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ input }) => getPartsLineById(input.id)),
-
-  getPartsOrder: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ input }) => getPartsOrderById(input.id)),
-
-  getSalesOrderLine: publicProcedure
-    .input(z.object({ id: z.string() }))
-    .query(async ({ input }) => getSalesOrderLineById(input.id)),
+  getStoreInventory: publicProcedure
+    .input(z.object({ storeCd: z.string().min(1) }))
+    .query(async ({ input }) => {
+      return getStoreInventory(input.storeCd);
+    }),
 });
 
-// ─── App Router ─────────────────────────────────────────────────────────────
+// ─── Root Router ────────────────────────────────────────────────────────────────
 
 export const appRouter = router({
-  system: systemRouter,
-  auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
-  }),
   scanner: scannerRouter,
+  system: systemRouter,
 });
 
 export type AppRouter = typeof appRouter;

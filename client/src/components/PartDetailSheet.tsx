@@ -6,12 +6,20 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Package, CheckCircle2, Clock, MapPin, Tag, Truck, User, Layers,
   AlertCircle, Hash, Barcode, Building2, ArrowRight, Sofa
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { STORE_LOCATIONS } from "@shared/const";
 import type { PartsLineRecord, PartsOrderRecord, SalesOrderLineRecord } from "../../../server/hubspot";
 
 type LookupResult =
@@ -99,39 +107,24 @@ function PartsLineDetail({ record, onReceived }: { record: PartsLineRecord; onRe
         </div>
       </div>
 
-      <DetailRow icon={Hash} label="SPOT PRO#" value={record.spotProNumber} mono />
-      <DetailRow icon={Barcode} label="ALI Number" value={record.aliNumber} mono />
-      <DetailRow icon={Tag} label="Style Number" value={record.styleNumber} mono />
-      <DetailRow icon={Layers} label="Part Category" value={record.partCategory} />
-      <DetailRow icon={User} label="Charge Code" value={record.chargeCode} />
-      <DetailRow icon={Building2} label="Vendor Code" value={record.vendorCode} />
+      <DetailRow icon={Tag} label="PRO#" value={record.spotProNumber} mono />
+      <DetailRow icon={Barcode} label="ALI#" value={record.aliNumber} mono />
+      <DetailRow icon={Package} label="Category" value={record.partCategory} />
+      <DetailRow icon={Hash} label="Charge Code" value={record.chargeCode} />
+      <DetailRow icon={User} label="Vendor Code" value={record.vendorCode} />
       <DetailRow icon={Truck} label="Delivery Method" value={record.partDeliveryMethod} />
       <DetailRow icon={Package} label="Part Source" value={record.partSource} />
       <DetailRow icon={MapPin} label="Bin Location" value={record.binLocation} />
-      <DetailRow icon={Clock} label="Received Date" value={record.receivedDate} />
-      <DetailRow icon={Clock} label="Lead Time" value={record.leadTimeDays ? `${record.leadTimeDays} days` : null} />
-      {record.poNumber && <DetailRow icon={Hash} label="PO Number" value={record.poNumber} mono />}
-      {record.shipmentExceptionReason && (
-        <div className="flex items-start gap-3 py-2.5">
-          <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center flex-shrink-0">
-            <AlertCircle className="w-4 h-4 text-destructive" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground mb-0.5">Shipment Exception</p>
-            <p className="text-sm font-medium text-destructive">{record.shipmentExceptionReason}</p>
-          </div>
-        </div>
-      )}
 
       {!isReceived && (
         <>
           <Separator className="my-4" />
           <div className="space-y-3">
-            <Label className="text-sm font-semibold text-foreground">Receive This Part</Label>
+            <Label className="text-sm font-semibold text-foreground">Receive Part</Label>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Bin location (e.g. R3-S5)"
+                placeholder="Bin location (required)"
                 value={binLocation}
                 onChange={(e) => setBinLocation(e.target.value)}
                 className="pl-9 bg-input border-border text-foreground h-12 text-base"
@@ -150,7 +143,7 @@ function PartsLineDetail({ record, onReceived }: { record: PartsLineRecord; onRe
               ) : (
                 <span className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5" />
-                  Mark as Received
+                  Receive Part
                 </span>
               )}
             </Button>
@@ -163,9 +156,7 @@ function PartsLineDetail({ record, onReceived }: { record: PartsLineRecord; onRe
           <CheckCircle2 className="w-6 h-6 text-success flex-shrink-0" />
           <div>
             <p className="text-sm font-semibold text-success">Already Received</p>
-            {record.receivedDate && (
-              <p className="text-xs text-muted-foreground">on {record.receivedDate}</p>
-            )}
+            <p className="text-xs text-muted-foreground">Part received in warehouse</p>
           </div>
         </div>
       )}
@@ -173,32 +164,31 @@ function PartsLineDetail({ record, onReceived }: { record: PartsLineRecord; onRe
   );
 }
 
-// ─── Parts Order Detail ───────────────────────────────────────────────────────
+// ─── Parts Order Detail ────────────────────────────────────────────────────────
 
 function PartsOrderDetail({ record }: { record: PartsOrderRecord }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2 mb-4">
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Layers className="w-5 h-5 text-primary" />
+        <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+          <Layers className="w-5 h-5 text-warning" />
         </div>
         <div>
           <p className="text-xs text-muted-foreground">Parts Order</p>
-          <p className="font-semibold text-foreground">{record.poNumber ?? `#${record.id}`}</p>
+          <p className="font-semibold text-foreground">PO: {record.poNumber ?? "—"}</p>
         </div>
         <div className="ml-auto">
           <StatusBadge status={record.status} />
         </div>
       </div>
 
-      <DetailRow icon={Hash} label="PO Number" value={record.poNumber} mono />
+      <DetailRow icon={Barcode} label="PO Number" value={record.poNumber} mono />
       <DetailRow icon={Clock} label="Expected Arrival" value={record.expectedArrival} />
       <DetailRow icon={Package} label="Notes" value={record.orderNotes} />
+
       {record.partsLocked && (
-        <div className="flex items-center gap-3 py-2.5">
-          <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center">
-            <AlertCircle className="w-4 h-4 text-warning" />
-          </div>
+        <div className="mt-4 p-4 rounded-xl bg-warning/10 border border-warning/20 flex items-center gap-3">
+          <AlertCircle className="w-6 h-6 text-warning flex-shrink-0" />
           <p className="text-sm font-medium text-warning">Parts Locked</p>
         </div>
       )}
@@ -236,7 +226,8 @@ function PartsOrderDetail({ record }: { record: PartsOrderRecord }) {
 // ─── Sales Order Line (Furniture) Detail ─────────────────────────────────────
 
 function SalesOrderLineDetail({ record, onCheckedIn }: { record: SalesOrderLineRecord; onCheckedIn?: () => void }) {
-  const [binLocation, setBinLocation] = useState(record.binLocation ?? "");
+  const [storeCd, setStoreCd] = useState(record.storeCd ?? "");
+  const [locCd, setLocCd] = useState(record.locCd ?? "");
   const [checking, setChecking] = useState(false);
 
   const checkinMutation = trpc.scanner.checkinFurniture.useMutation({
@@ -255,10 +246,15 @@ function SalesOrderLineDetail({ record, onCheckedIn }: { record: SalesOrderLineR
   });
 
   const handleCheckin = () => {
+    if (!storeCd.trim()) {
+      toast.error("Store location required");
+      return;
+    }
     setChecking(true);
     checkinMutation.mutate({
       salesOrderLineId: record.id,
-      binLocation: binLocation.trim() || undefined,
+      storeCd: storeCd.trim(),
+      locCd: locCd.trim() || undefined,
     });
   };
 
@@ -287,25 +283,44 @@ function SalesOrderLineDetail({ record, onCheckedIn }: { record: SalesOrderLineR
       <DetailRow icon={Building2} label="Vendor Code" value={record.vendorCode} />
       <DetailRow icon={Truck} label="Delivery Method" value={record.partDeliveryMethod} />
       <DetailRow icon={Package} label="Part Source" value={record.partSource} />
-      <DetailRow icon={MapPin} label="Bin Location" value={record.binLocation} />
+      <DetailRow icon={MapPin} label="Store Location" value={record.storeCd} />
+      <DetailRow icon={MapPin} label="Location Code" value={record.locCd} />
 
       {!isReceived && (
         <>
           <Separator className="my-4" />
           <div className="space-y-3">
             <Label className="text-sm font-semibold text-foreground">Check In Furniture</Label>
+
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Store Location *</Label>
+              <Select value={storeCd} onValueChange={setStoreCd}>
+                <SelectTrigger className="h-12 bg-input border-border text-foreground text-base">
+                  <SelectValue placeholder="Select store..." />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  {STORE_LOCATIONS.map((store) => (
+                    <SelectItem key={store.code} value={store.code} className="text-foreground">
+                      {store.code} - {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Bin location (optional)"
-                value={binLocation}
-                onChange={(e) => setBinLocation(e.target.value)}
+                placeholder="Location code (optional)"
+                value={locCd}
+                onChange={(e) => setLocCd(e.target.value)}
                 className="pl-9 bg-input border-border text-foreground h-12 text-base"
               />
             </div>
+
             <Button
               onClick={handleCheckin}
-              disabled={checking}
+              disabled={checking || !storeCd.trim()}
               className="w-full h-12 text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {checking ? (
@@ -350,39 +365,30 @@ export function PartDetailSheet({ result, open, onClose, onReceived }: PartDetai
           <SheetTitle className="text-left text-foreground">
             {result?.type === "parts_line" && "Parts Line Details"}
             {result?.type === "parts_order" && "Parts Order Details"}
-            {result?.type === "sales_order_line" && "Furniture Item Details"}
+            {result?.type === "sales_order_line" && "Furniture Details"}
             {result?.type === "not_found" && "Not Found"}
           </SheetTitle>
         </SheetHeader>
 
-        {result?.type === "not_found" && (
-          <div className="flex flex-col items-center gap-4 py-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertCircle className="w-8 h-8 text-destructive" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground">No Record Found</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Code: <span className="font-mono text-primary">{result.code}</span>
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                Try searching manually or verify the barcode is correct.
-              </p>
-            </div>
-            <Button variant="outline" onClick={onClose} className="mt-2">
-              <ArrowRight className="w-4 h-4 mr-2" /> Go to Search
-            </Button>
-          </div>
-        )}
-
         {result?.type === "parts_line" && (
-          <PartsLineDetail record={result.record} onReceived={() => { onReceived?.(); onClose(); }} />
+          <PartsLineDetail record={result.record} onReceived={onReceived} />
         )}
         {result?.type === "parts_order" && (
           <PartsOrderDetail record={result.record} />
         )}
         {result?.type === "sales_order_line" && (
-          <SalesOrderLineDetail record={result.record} onCheckedIn={() => { onReceived?.(); onClose(); }} />
+          <SalesOrderLineDetail record={result.record} onCheckedIn={onReceived} />
+        )}
+        {result?.type === "not_found" && (
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <AlertCircle className="w-12 h-12 text-destructive" />
+            <div>
+              <p className="font-semibold text-foreground">Not Found</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Could not find record for: {result.code}
+              </p>
+            </div>
+          </div>
         )}
       </SheetContent>
     </Sheet>
