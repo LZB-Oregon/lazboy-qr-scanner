@@ -54,15 +54,18 @@
 - [x] Add store location constants to shared config
 - [x] Update furniture check-in to use store_cd and loc_cd fields
 
-### Store Inventory Feature (MOSTLY COMPLETE)
+### Store Inventory Feature (COMPLETE)
 - [x] Build store inventory page with filterable list
 - [x] Filter by store location (all 9 stores)
 - [x] Display furniture details: name, SKU, location code, last scan time
 - [x] Add Inventory tab to bottom navigation
 - [x] Real-time inventory count per store
 - [x] Add getStoreInventory tRPC query
+- [x] Filter by customer name (search input with CONTAINS_TOKEN)
+- [x] Filter by service order number (search input with CONTAINS_TOKEN)
+- [x] Display customer name and service order in inventory list
+- [x] Clear filters button
 - [ ] Filter by location checkpoint (7 statuses) - TODO: implement checkpoint mapping
-- [ ] Filter by customer name or service order - TODO: add search filters
 
 ### Location Tracking (7 Checkpoints) (IN PROGRESS)
 - [x] Define 7-checkpoint location tracking workflow with colors
@@ -87,3 +90,13 @@
 - [ ] Test inventory filtering by store/location/customer
 - [ ] Test location checkpoint updates to HubSpot
 - [ ] Test Zebra printer integration
+
+
+## Phase 2.5: Inventory Search Filters (IN PROGRESS)
+- [ ] Add customer name search input to Inventory page
+- [ ] Add service order number search input to Inventory page
+- [ ] Update getStoreInventory query to support customer_name filter
+- [ ] Update getStoreInventory query to support service_order filter
+- [ ] Implement real-time search filtering on frontend
+- [ ] Test search with multiple filters combined
+- [ ] Verify TypeScript clean

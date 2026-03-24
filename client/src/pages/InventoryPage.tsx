@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import {
   Select,
@@ -7,20 +7,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Sofa, RefreshCw, Loader2, Inbox, MapPin, Clock, User, Tag, Building2
+  Sofa, RefreshCw, Loader2, Inbox, MapPin, Clock, User, Tag, Building2, X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { STORE_LOCATIONS, LOCATION_CHECKPOINTS } from "@shared/const";
 
 export default function InventoryPage() {
   const [selectedStore, setSelectedStore] = useState<string>("00");
+  const [customerNameFilter, setCustomerNameFilter] = useState<string>("");
+  const [serviceOrderFilter, setServiceOrderFilter] = useState<string>("");
   const [isFetching, setIsFetching] = useState(false);
 
-  // Fetch furniture items for the selected store
+  // Fetch furniture items for the selected store with optional filters
   const { data: inventory, isLoading, error, refetch } = trpc.scanner.getStoreInventory.useQuery(
-    { storeCd: selectedStore },
+    {
+      storeCd: selectedStore,
+      customerName: customerNameFilter || undefined,
+      serviceOrderNumber: serviceOrderFilter || undefined,
+    },
     { refetchOnWindowFocus: false }
   );
 
@@ -29,6 +36,13 @@ export default function InventoryPage() {
     await refetch();
     setIsFetching(false);
   };
+
+  const clearFilters = () => {
+    setCustomerNameFilter("");
+    setServiceOrderFilter("");
+  };
+
+  const hasActiveFilters = customerNameFilter.trim() || serviceOrderFilter.trim();
 
   const getStoreName = (code: string) => {
     return STORE_LOCATIONS.find(s => s.code === code)?.name || code;
@@ -53,7 +67,7 @@ export default function InventoryPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Store Inventory</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            View furniture by location
+            View and search furniture by location
           </p>
         </div>
         <Button
@@ -86,13 +100,59 @@ export default function InventoryPage() {
         </Select>
       </div>
 
+      {/* Search filters */}
+      <div className="px-5 mb-4 space-y-3">
+        <div>
+          <label className="text-xs text-muted-foreground mb-1.5 block font-semibold">
+            Customer Name (optional)
+          </label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by customer name..."
+              value={customerNameFilter}
+              onChange={(e) => setCustomerNameFilter(e.target.value)}
+              className="pl-9 bg-input border-border text-foreground h-10 text-sm"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-muted-foreground mb-1.5 block font-semibold">
+            Service Order Number (optional)
+          </label>
+          <div className="relative">
+            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by service order..."
+              value={serviceOrderFilter}
+              onChange={(e) => setServiceOrderFilter(e.target.value)}
+              className="pl-9 bg-input border-border text-foreground h-10 text-sm"
+            />
+          </div>
+        </div>
+
+        {hasActiveFilters && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearFilters}
+            className="w-full h-9 text-xs border-border text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-3 h-3 mr-1.5" />
+            Clear Filters
+          </Button>
+        )}
+      </div>
+
       {/* Count badge */}
       {inventory && inventory.length > 0 && (
         <div className="px-5 mb-3">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
             <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             <span className="text-sm font-medium text-primary">
-              {inventory.length} item{inventory.length !== 1 ? "s" : ""} at {getStoreName(selectedStore)}
+              {inventory.length} item{inventory.length !== 1 ? "s" : ""} found
+              {hasActiveFilters && " (filtered)"}
             </span>
           </div>
         </div>
@@ -119,14 +179,23 @@ export default function InventoryPage() {
               <Inbox className="w-8 h-8 text-muted-foreground" />
             </div>
             <div>
-              <p className="font-semibold text-foreground">No furniture at this location</p>
+              <p className="font-semibold text-foreground">No furniture found</p>
               <p className="text-sm text-muted-foreground mt-1">
-                {getStoreName(selectedStore)} has no items in inventory
+                {hasActiveFilters
+                  ? "Try adjusting your search filters"
+                  : `${getStoreName(selectedStore)} has no items in inventory`}
               </p>
             </div>
-            <Button variant="outline" onClick={handleRefresh} className="mt-2">
-              <RefreshCw className="w-4 h-4 mr-2" /> Refresh
-            </Button>
+            {hasActiveFilters && (
+              <Button variant="outline" onClick={clearFilters} className="mt-2">
+                <X className="w-4 h-4 mr-2" /> Clear Filters
+              </Button>
+            )}
+            {!hasActiveFilters && (
+              <Button variant="outline" onClick={handleRefresh} className="mt-2">
+                <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+              </Button>
+            )}
           </div>
         )}
 
@@ -165,6 +234,20 @@ export default function InventoryPage() {
                   <div className="col-span-2 flex items-start gap-2">
                     <Tag className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                     <p className="text-xs text-muted-foreground truncate">{item.description}</p>
+                  </div>
+                )}
+
+                {item.customerName && (
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-xs text-muted-foreground truncate">{item.customerName}</span>
+                  </div>
+                )}
+
+                {item.serviceOrderNumber && (
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-xs text-muted-foreground truncate">{item.serviceOrderNumber}</span>
                   </div>
                 )}
 

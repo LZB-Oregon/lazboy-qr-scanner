@@ -80,6 +80,8 @@ export interface SalesOrderLineRecord {
   binLocation: string | null;
   storeCd: string | null;  // 2-digit store code (00-09)
   locCd: string | null;    // location code within store
+  customerName: string | null;  // customer name for search/filter
+  serviceOrderNumber: string | null;  // service order number for search/filter
 }
 
 // ─── Parts Line ───────────────────────────────────────────────────────────────
@@ -253,6 +255,8 @@ function mapSalesOrderLine(raw: Record<string, unknown>): SalesOrderLineRecord {
     binLocation: p.bin_location ?? null,
     storeCd: p.store_cd ?? null,
     locCd: p.loc_cd ?? null,
+    customerName: p.customer_name ?? null,
+    serviceOrderNumber: p.service_order_number ?? null,
   };
 }
 
@@ -287,6 +291,8 @@ const FURNITURE_PROPS = [
   "bin_location",
   "store_cd",
   "loc_cd",
+  "customer_name",
+  "service_order_number",
   "hs_object_id",
 ].join(",");
 
@@ -308,6 +314,8 @@ function mapFurniture(raw: Record<string, unknown>): SalesOrderLineRecord {
     binLocation: p.bin_location ?? null,
     storeCd: p.store_cd ?? null,
     locCd: p.loc_cd ?? null,
+    customerName: p.customer_name ?? null,
+    serviceOrderNumber: p.service_order_number ?? null,
   };
 }
 
@@ -516,16 +524,36 @@ export interface InventoryItem extends SalesOrderLineRecord {
   lastScanAt?: string;
 }
 
-export async function getStoreInventory(storeCd: string): Promise<InventoryItem[]> {
+export async function getStoreInventory(
+  storeCd: string,
+  customerName?: string,
+  serviceOrderNumber?: string
+): Promise<InventoryItem[]> {
   const url = `${HS_BASE}/crm/v3/objects/${FURNITURE_OBJECT}/search`;
+  
+  // Build filters: store_cd is required, customer_name and service_order_number are optional
+  const filters = [
+    { propertyName: "store_cd", operator: "EQ", value: storeCd },
+  ];
+  
+  if (customerName?.trim()) {
+    filters.push({
+      propertyName: "customer_name",
+      operator: "CONTAINS_TOKEN",
+      value: customerName.trim(),
+    });
+  }
+  
+  if (serviceOrderNumber?.trim()) {
+    filters.push({
+      propertyName: "service_order_number",
+      operator: "CONTAINS_TOKEN",
+      value: serviceOrderNumber.trim(),
+    });
+  }
+  
   const body = {
-    filterGroups: [
-      {
-        filters: [
-          { propertyName: "store_cd", operator: "EQ", value: storeCd },
-        ],
-      },
-    ],
+    filterGroups: [{ filters }],
     properties: FURNITURE_PROPS.split(","),
     limit: 100,
     sorts: [{ propertyName: "hs_createdate", direction: "DESCENDING" }],

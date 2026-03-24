@@ -139,9 +139,13 @@ const scannerRouter = router({
     }),
 
   getStoreInventory: publicProcedure
-    .input(z.object({ storeCd: z.string().min(1) }))
+    .input(z.object({
+      storeCd: z.string().min(1),
+      customerName: z.string().optional(),
+      serviceOrderNumber: z.string().optional(),
+    }))
     .query(async ({ input }) => {
-      return getStoreInventory(input.storeCd);
+      return getStoreInventory(input.storeCd, input.customerName, input.serviceOrderNumber);
     }),
 });
 
